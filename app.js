@@ -120,9 +120,31 @@ class KirinEventsApp {
             if (navLoginBtn) navLoginBtn.classList.add('hidden');
             if (navUserMenu) navUserMenu.classList.remove('hidden');
             
-            // Set User Initials
+            const avatarImg = document.getElementById('nav-user-avatar');
+            const nameSpan = document.getElementById('nav-user-name');
+            
+            // Set User Name & Avatar & Initials
             const name = this.userProfile?.name || user.displayName || user.email || 'User';
-            if (initialsSpan) initialsSpan.textContent = this.getUserInitials(name);
+            const shortName = this.userProfile?.name || user.displayName || 'Volunteer';
+            
+            if (nameSpan) {
+                nameSpan.textContent = shortName;
+            }
+            
+            if (user.photoURL) {
+                if (avatarImg) {
+                    avatarImg.src = user.photoURL;
+                    avatarImg.classList.remove('hidden');
+                }
+                if (initialsSpan) initialsSpan.classList.add('hidden');
+            } else {
+                if (avatarImg) avatarImg.classList.add('hidden');
+                if (initialsSpan) {
+                    initialsSpan.textContent = this.getUserInitials(name);
+                    initialsSpan.classList.remove('hidden');
+                }
+            }
+            
             if (dropdownEmail) dropdownEmail.textContent = user.email;
 
             // Close Auth Modal

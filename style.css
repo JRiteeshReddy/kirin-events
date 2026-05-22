@@ -1357,3 +1357,21 @@ input, textarea, select {
     opacity: 0.8;
 }
 
+.nav-user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--color-border-subtle);
+}
+
+.nav-user-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
