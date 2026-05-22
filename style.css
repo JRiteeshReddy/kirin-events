@@ -206,16 +206,12 @@ input, textarea, select {
     cursor: pointer;
 }
 
-.logo-circle {
+.logo-img {
     width: 36px;
     height: 36px;
-    background-color: var(--color-accent-dark);
-    color: #ffffff;
     border-radius: var(--radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
+    object-fit: cover;
+    display: block;
 }
 
 .logo-text {
