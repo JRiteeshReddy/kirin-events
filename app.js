@@ -14,6 +14,12 @@ class KirinEventsApp {
         this.CONTENTFUL_SPACE_ID = '46mef9e7vxq9';
         this.CONTENTFUL_CDN_TOKEN = 'IwmWLIq0FDFmxQW6F5w_hV2NED-YYZmQO_r8xmShi7g';
         this.CONTENTFUL_CONTENT_TYPE = 'kirinevents';
+
+        // Auth related states
+        this.user = null;
+        this.userProfile = null;
+        this.authMode = 'login'; // 'login' or 'signup'
+        this.pendingRegistration = false;
     }
 
     /**
@@ -32,17 +38,344 @@ class KirinEventsApp {
         this.fetchEvents().then(() => {
             this.handleRouting();
         });
+
+        // Initialize Firebase Auth connection listener
+        setTimeout(() => {
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                console.log("Firebase Auth bridge initialized.");
+                window.firebaseInstance.onAuthChanged(async (user) => {
+                    await this.handleAuthStateChange(user);
+                });
+            } else {
+                console.warn("Firebase Instance is not initialized yet.");
+            }
+        }, 200);
     }
 
     /**
      * Bind DOM interaction listeners
      */
     bindEvents() {
-        // Close modal when clicking backdrop
-        const modal = document.getElementById('signup-modal');
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) this.closeSignupModal();
+        // Close modals on backdrop clicks
+        const signupModal = document.getElementById('signup-modal');
+        signupModal.addEventListener('click', (e) => {
+            if (e.target === signupModal) this.closeSignupModal();
         });
+
+        const authModal = document.getElementById('auth-modal');
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) this.closeAuthModal();
+        });
+
+        const accountModal = document.getElementById('account-modal');
+        accountModal.addEventListener('click', (e) => {
+            if (e.target === accountModal) this.closeAccountModal();
+        });
+
+        // Close dropdown when clicking outside user menu
+        window.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('nav-user-menu');
+            const dropdown = document.getElementById('nav-dropdown-menu');
+            if (userMenu && !userMenu.contains(e.target)) {
+                userMenu.classList.remove('open');
+                if (dropdown) dropdown.classList.add('hidden');
+            }
+        });
+    }
+
+    /* ==========================================================================
+       AUTHENTICATION & VOLUNTEER PROFILE ACTIONS
+       ========================================================================== */
+
+    async handleAuthStateChange(user) {
+        console.log("Auth State Changed. User:", user ? user.email : "Logged Out");
+        
+        const navLoginBtn = document.getElementById('nav-login-btn');
+        const navUserMenu = document.getElementById('nav-user-menu');
+        const initialsSpan = document.getElementById('nav-user-initials');
+        const dropdownEmail = document.getElementById('dropdown-user-email');
+
+        if (user) {
+            this.user = user;
+            
+            // Try fetching Firestore Profile
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                const profile = await window.firebaseInstance.getProfile(user.uid);
+                if (profile) {
+                    this.userProfile = profile;
+                    console.log("Firestore profile loaded successfully.");
+                } else {
+                    // Try LocalStorage backup
+                    const localProfile = localStorage.getItem(`kirin_profile_${user.uid}`);
+                    if (localProfile) {
+                        this.userProfile = JSON.parse(localProfile);
+                        console.log("LocalStorage backup profile loaded.");
+                    } else {
+                        this.userProfile = null;
+                    }
+                }
+            }
+
+            // Update UI elements
+            if (navLoginBtn) navLoginBtn.classList.add('hidden');
+            if (navUserMenu) navUserMenu.classList.remove('hidden');
+            
+            // Set User Initials
+            const name = this.userProfile?.name || user.displayName || user.email || 'User';
+            if (initialsSpan) initialsSpan.textContent = this.getUserInitials(name);
+            if (dropdownEmail) dropdownEmail.textContent = user.email;
+
+            // Close Auth Modal
+            this.closeAuthModal();
+
+            // Resume any event registration that was waiting for login
+            if (this.pendingRegistration) {
+                this.pendingRegistration = false;
+                setTimeout(() => this.openSignupModal(), 100);
+            }
+        } else {
+            this.user = null;
+            this.userProfile = null;
+            
+            if (navLoginBtn) navLoginBtn.classList.remove('hidden');
+            if (navUserMenu) navUserMenu.classList.add('hidden');
+        }
+    }
+
+    getUserInitials(name) {
+        if (!name) return 'UN';
+        const parts = name.split(' ').filter(p => p.trim().length > 0);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return name.slice(0, 2).toUpperCase();
+    }
+
+    // Modal Control wrappers
+    openAuthModal() {
+        this.authMode = 'login';
+        this.updateAuthModalUI();
+        const errEl = document.getElementById('auth-error-msg');
+        if (errEl) errEl.classList.add('hidden');
+        document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    closeAuthModal() {
+        document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    openAccountModal() {
+        // Toggle user dropdown close
+        document.getElementById('nav-user-menu').classList.remove('open');
+        document.getElementById('nav-dropdown-menu').classList.add('hidden');
+
+        // Pre-populate Profile Form values
+        if (this.userProfile) {
+            document.getElementById('profile-name').value = this.userProfile.name || '';
+            document.getElementById('profile-whatsapp').value = this.userProfile.whatsapp || '';
+            document.getElementById('profile-age').value = this.userProfile.age || '';
+            document.getElementById('profile-location').value = this.userProfile.location || '';
+            document.getElementById('profile-experience').value = this.userProfile.experience || '';
+        } else if (this.user) {
+            document.getElementById('profile-name').value = this.user.displayName || '';
+            document.getElementById('profile-whatsapp').value = '';
+            document.getElementById('profile-age').value = '';
+            document.getElementById('profile-location').value = '';
+            document.getElementById('profile-experience').value = '';
+        }
+
+        const msgEl = document.getElementById('profile-status-msg');
+        if (msgEl) msgEl.classList.add('hidden');
+
+        document.getElementById('account-modal').classList.remove('hidden');
+    }
+
+    closeAccountModal() {
+        document.getElementById('account-modal').classList.add('hidden');
+    }
+
+    toggleUserDropdown() {
+        const menu = document.getElementById('nav-user-menu');
+        const dropdown = document.getElementById('nav-dropdown-menu');
+        if (menu && dropdown) {
+            menu.classList.toggle('open');
+            dropdown.classList.toggle('hidden');
+        }
+    }
+
+    // Google Sign-In handler
+    async handleGoogleSignIn() {
+        const spinner = document.getElementById('auth-btn-spinner');
+        const errEl = document.getElementById('auth-error-msg');
+        
+        if (errEl) errEl.classList.add('hidden');
+        if (spinner) spinner.classList.remove('hidden');
+
+        try {
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                await window.firebaseInstance.signInWithGoogle();
+                console.log("Google authentication completed.");
+            } else {
+                throw new Error("Authentication module is temporarily unavailable.");
+            }
+        } catch (e) {
+            console.error("Google auth failed:", e);
+            if (errEl) {
+                errEl.textContent = e.message || "Failed to log in with Google.";
+                errEl.classList.remove('hidden');
+            }
+        } finally {
+            if (spinner) spinner.classList.add('hidden');
+        }
+    }
+
+    // Auth Mode Toggler (Login vs Signup)
+    toggleAuthMode(e) {
+        if (e) e.preventDefault();
+        this.authMode = this.authMode === 'login' ? 'signup' : 'login';
+        this.updateAuthModalUI();
+    }
+
+    updateAuthModalUI() {
+        const title = document.querySelector('#auth-modal h2');
+        const btnText = document.getElementById('auth-btn-text');
+        const toggleText = document.getElementById('auth-toggle-text');
+        
+        if (this.authMode === 'login') {
+            if (title) title.textContent = "Volunteer Sign In";
+            if (btnText) btnText.textContent = "Sign In";
+            if (toggleText) toggleText.innerHTML = `Don't have an account? <a href="#" onclick="app.toggleAuthMode(event)">Sign Up</a>`;
+        } else {
+            if (title) title.textContent = "Create Volunteer Account";
+            if (btnText) btnText.textContent = "Create Account";
+            if (toggleText) toggleText.innerHTML = `Already have an account? <a href="#" onclick="app.toggleAuthMode(event)">Sign In</a>`;
+        }
+    }
+
+    // Email & Password Auth Handler
+    async handleEmailAuth(e) {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const spinner = document.getElementById('auth-btn-spinner');
+        const errEl = document.getElementById('auth-error-msg');
+        const submitBtn = document.getElementById('auth-submit-btn');
+
+        if (errEl) errEl.classList.add('hidden');
+        if (spinner) spinner.classList.remove('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                if (this.authMode === 'login') {
+                    await window.firebaseInstance.signInWithEmail(email, password);
+                    console.log("Email sign in successful.");
+                } else {
+                    await window.firebaseInstance.signUpWithEmail(email, password);
+                    console.log("Email registration successful.");
+                }
+            } else {
+                throw new Error("Authentication module is temporarily offline.");
+            }
+        } catch (err) {
+            console.error("Email auth failed:", err);
+            let userFriendlyMsg = err.message;
+            // Beautify common Firebase errors
+            if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+                userFriendlyMsg = "Invalid email or password combination.";
+            } else if (err.code === 'auth/email-already-in-use') {
+                userFriendlyMsg = "An account with this email address already exists.";
+            } else if (err.code === 'auth/weak-password') {
+                userFriendlyMsg = "Password must be at least 6 characters long.";
+            } else if (err.code === 'auth/invalid-email') {
+                userFriendlyMsg = "Please enter a valid email address.";
+            }
+            if (errEl) {
+                errEl.textContent = userFriendlyMsg;
+                errEl.classList.remove('hidden');
+            }
+        } finally {
+            if (spinner) spinner.classList.add('hidden');
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    }
+
+    // Profile Settings Save
+    async handleProfileSave(e) {
+        e.preventDefault();
+        if (!this.user) return;
+
+        const name = document.getElementById('profile-name').value.trim();
+        const whatsapp = document.getElementById('profile-whatsapp').value.trim();
+        const age = document.getElementById('profile-age').value;
+        const location = document.getElementById('profile-location').value.trim();
+        const experience = document.getElementById('profile-experience').value.trim();
+        
+        const spinner = document.getElementById('profile-btn-spinner');
+        const saveBtn = document.getElementById('profile-save-btn');
+        const statusMsg = document.getElementById('profile-status-msg');
+
+        if (spinner) spinner.classList.remove('hidden');
+        if (saveBtn) saveBtn.disabled = true;
+        if (statusMsg) statusMsg.classList.add('hidden');
+
+        const profileData = { name, whatsapp, age, location, experience };
+
+        try {
+            // Save to LocalStorage
+            localStorage.setItem(`kirin_profile_${this.user.uid}`, JSON.stringify(profileData));
+            this.userProfile = profileData;
+
+            // Save to Firebase Firestore
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                await window.firebaseInstance.saveProfile(this.user.uid, profileData);
+            }
+
+            // Success feedback
+            if (statusMsg) {
+                statusMsg.className = "profile-status-msg success";
+                statusMsg.textContent = "Volunteer profile saved successfully!";
+                statusMsg.classList.remove('hidden');
+            }
+
+            // Sync Header Initials
+            const initialsSpan = document.getElementById('nav-user-initials');
+            if (initialsSpan) initialsSpan.textContent = this.getUserInitials(name);
+
+            // Automatically close modal after 1.2s
+            setTimeout(() => {
+                this.closeAccountModal();
+            }, 1200);
+
+        } catch (err) {
+            console.error("Profile save error:", err);
+            if (statusMsg) {
+                statusMsg.className = "profile-status-msg error";
+                statusMsg.textContent = "Error saving profile. Details saved locally.";
+                statusMsg.classList.remove('hidden');
+            }
+        } finally {
+            if (spinner) spinner.classList.add('hidden');
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    }
+
+    // Sign Out handler
+    async handleSignOut() {
+        try {
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                await window.firebaseInstance.signOutUser();
+                console.log("User successfully signed out.");
+            }
+        } catch (e) {
+            console.error("Error signing out user:", e);
+        } finally {
+            // Toggle dropdown close
+            const menu = document.getElementById('nav-user-menu');
+            const dropdown = document.getElementById('nav-dropdown-menu');
+            if (menu) menu.classList.remove('open');
+            if (dropdown) dropdown.classList.add('hidden');
+        }
     }
 
     /**
@@ -399,6 +732,14 @@ class KirinEventsApp {
     openSignupModal() {
         if (!this.activeEvent) return;
 
+        // AUTH CHECK: Must be logged in to register for events!
+        if (!this.user) {
+            console.log("Redirecting to login before volunteer registration.");
+            this.pendingRegistration = true;
+            this.openAuthModal();
+            return;
+        }
+
         // Reset step states
         document.getElementById('modal-form-step').classList.remove('hidden');
         document.getElementById('modal-success-step').classList.add('hidden');
@@ -411,9 +752,28 @@ class KirinEventsApp {
         document.getElementById('form-event-title').value = this.activeEvent.title;
         document.getElementById('form-event-id').value = this.activeEvent.id;
 
+        // Auto-fill logged in volunteer details if profile is set
+        if (this.userProfile) {
+            document.getElementById('volunteer-name').value = this.userProfile.name || '';
+            document.getElementById('volunteer-whatsapp').value = this.userProfile.whatsapp || '';
+            document.getElementById('volunteer-age').value = this.userProfile.age || '';
+            document.getElementById('volunteer-location').value = this.userProfile.location || '';
+            document.getElementById('volunteer-experience').value = this.userProfile.experience || '';
+        } else {
+            // Fallback to Google user name if profile doesn't exist yet
+            document.getElementById('volunteer-name').value = this.user.displayName || '';
+        }
+
         // Open backdrop
         document.getElementById('signup-modal').classList.remove('hidden');
-        document.getElementById('volunteer-name').focus();
+        
+        // Focus first empty field
+        const whatsappInput = document.getElementById('volunteer-whatsapp');
+        if (whatsappInput && whatsappInput.value === '') {
+            whatsappInput.focus();
+        } else {
+            document.getElementById('volunteer-name').focus();
+        }
     }
 
     closeSignupModal() {
@@ -444,6 +804,23 @@ class KirinEventsApp {
         data['_subject'] = `New Kirin Volunteer: ${data['Name']} — ${data['Event Name']}`;
 
         try {
+            // Auto-save submitted values to Firebase Profile so user's profile is updated on the fly
+            if (this.user) {
+                const profileData = {
+                    name: data['Name'],
+                    whatsapp: data['WhatsApp Number'],
+                    age: data['Age'],
+                    location: data['Location'],
+                    experience: data['Experience']
+                };
+                this.userProfile = profileData;
+                localStorage.setItem(`kirin_profile_${this.user.uid}`, JSON.stringify(profileData));
+                
+                if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                    await window.firebaseInstance.saveProfile(this.user.uid, profileData);
+                }
+            }
+
             // Live fetch submission to Formspree endpoint
             const endpoint = 'https://formspree.io/f/meedkgbz';
             const response = await fetch(endpoint, {
@@ -457,7 +834,7 @@ class KirinEventsApp {
 
             if (response.ok) {
                 // Success feedback screen transition
-                document.getElementById('success-event-title').textContent = data.eventTitle;
+                document.getElementById('success-event-title').textContent = data['Event Name'] || this.activeEvent.title;
                 document.getElementById('modal-form-step').classList.add('hidden');
                 document.getElementById('modal-success-step').classList.remove('hidden');
             } else {

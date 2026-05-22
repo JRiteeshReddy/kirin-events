@@ -26,7 +26,30 @@
                 <span class="logo-text">Kirin<span>Events</span></span>
             </div>
             <nav class="nav-links">
-                <!-- Contentful connected via hardcoded credentials -->
+                <!-- Auth dynamic section -->
+                <div id="auth-nav-container" class="auth-nav-container">
+                    <button id="nav-login-btn" class="btn btn-secondary nav-login-btn" onclick="app.openAuthModal()">
+                        <i class="fa-solid fa-user"></i> Sign In
+                    </button>
+                    <div id="nav-user-menu" class="nav-user-menu hidden">
+                        <button class="nav-user-btn" onclick="app.toggleUserDropdown()">
+                            <span id="nav-user-initials" class="nav-user-initials">UN</span>
+                            <i class="fa-solid fa-chevron-down dropdown-arrow"></i>
+                        </button>
+                        <div id="nav-dropdown-menu" class="nav-dropdown-menu hidden">
+                            <div class="dropdown-header">
+                                <span id="dropdown-user-email" class="dropdown-user-email">email@domain.com</span>
+                            </div>
+                            <button class="dropdown-item" onclick="app.openAccountModal()">
+                                <i class="fa-regular fa-id-card"></i> Volunteer Profile
+                            </button>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item danger" onclick="app.handleSignOut()">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </nav>
         </div>
     </header>
@@ -246,6 +269,199 @@
             </div>
         </div>
     </div>
+
+    <!-- ==================== AUTHENTICATION MODAL ==================== -->
+    <div id="auth-modal" class="modal-overlay hidden">
+        <div class="modal-content auth-modal-content">
+            <button class="close-modal-btn" onclick="app.closeAuthModal()"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="modal-header">
+                <h2>Volunteer Sign In</h2>
+                <p class="modal-subtitle-text">Log in to register for events with 1-click and track your volunteer history.</p>
+            </div>
+
+            <!-- Google Login Option -->
+            <button class="btn btn-secondary btn-block google-login-btn" onclick="app.handleGoogleSignIn()">
+                <img src="https://lh3.googleusercontent.com/COxitfgDO1t3sAcocJwrc5s70q7T5a1Dn17co62b2g7w4Q-2gOM75eyCxJUyqRNMRBs" alt="Google Logo" class="google-logo-icon">
+                <span>Continue with Google</span>
+            </button>
+
+            <div class="auth-divider">
+                <span>or use email</span>
+            </div>
+
+            <!-- Email Forms -->
+            <form id="auth-email-form" onsubmit="app.handleEmailAuth(event)">
+                <div class="form-group">
+                    <label for="auth-email">Email Address</label>
+                    <input type="email" id="auth-email" required placeholder="e.g. volunteer@domain.com" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••" autocomplete="current-password">
+                </div>
+
+                <!-- Toggle Login/Signup modes -->
+                <div id="auth-form-toggle-area" class="auth-form-toggle-area">
+                    <span id="auth-toggle-text">Don't have an account? <a href="#" onclick="app.toggleAuthMode(event)">Sign Up</a></span>
+                </div>
+
+                <div id="auth-error-msg" class="auth-error-msg hidden"></div>
+
+                <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
+                    <span id="auth-btn-text">Sign In</span>
+                    <span id="auth-btn-spinner" class="spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== ACCOUNT PROFILE MODAL ==================== -->
+    <div id="account-modal" class="modal-overlay hidden">
+        <div class="modal-content account-modal-content">
+            <button class="close-modal-btn" onclick="app.closeAccountModal()"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="modal-header">
+                <h2>Volunteer Profile</h2>
+                <p class="modal-subtitle-text">Manage the details used to pre-fill your event registrations.</p>
+            </div>
+
+            <form id="profile-form" onsubmit="app.handleProfileSave(event)">
+                <div class="form-group">
+                    <label for="profile-name">Full Name</label>
+                    <input type="text" id="profile-name" required placeholder="e.g. Riteesh Reddy">
+                </div>
+                <div class="form-group">
+                    <label for="profile-whatsapp">WhatsApp Number</label>
+                    <input type="tel" id="profile-whatsapp" required placeholder="e.g. +91 98765 43210">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                       <label for="profile-age">Age</label>
+                       <input type="number" id="profile-age" required placeholder="e.g. 22" min="16" max="80">
+                    </div>
+                    <div class="form-group">
+                       <label for="profile-location">Location</label>
+                       <input type="text" id="profile-location" required placeholder="e.g. Bangalore">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="profile-experience">Experience / Background</label>
+                    <textarea id="profile-experience" rows="3" required placeholder="e.g. 2 years of event coordination..."></textarea>
+                </div>
+
+                <div id="profile-status-msg" class="profile-status-msg hidden"></div>
+
+                <button type="submit" id="profile-save-btn" class="btn btn-primary btn-block">
+                    <span>Save Changes</span>
+                    <span id="profile-btn-spinner" class="spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== FIREBASE SDK INTEGRATION ==================== -->
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+
+      // Your web app's Firebase configuration
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyA5dpAUl5EBnaYm5vDdBnfT_s2Bmscv808",
+        authDomain: "kirin-events.firebaseapp.com",
+        projectId: "kirin-events",
+        storageBucket: "kirin-events.firebasestorage.app",
+        messagingSenderId: "367596102880",
+        appId: "1:367596102880:web:9d15e1bb797aa3dab11c85",
+        measurementId: "G-9CPK1L3RZ3"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+    </script>
+
+    <!-- ==================== VOLUNTEER AUTH & FIRESTORE INTEGRATION ==================== -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+      import { 
+          getAuth, 
+          signInWithPopup, 
+          GoogleAuthProvider, 
+          signInWithEmailAndPassword, 
+          createUserWithEmailAndPassword, 
+          signOut, 
+          onAuthStateChanged 
+      } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+      import { 
+          getFirestore, 
+          doc, 
+          setDoc, 
+          getDoc 
+      } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyA5dpAUl5EBnaYm5vDdBnfT_s2Bmscv808",
+        authDomain: "kirin-events.firebaseapp.com",
+        projectId: "kirin-events",
+        storageBucket: "kirin-events.firebasestorage.app",
+        messagingSenderId: "367596102880",
+        appId: "1:367596102880:web:9d15e1bb797aa3dab11c85",
+        measurementId: "G-9CPK1L3RZ3"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      // Expose to window for app.js integration
+      window.firebaseInstance = {
+          auth,
+          db,
+          isInitialized: true,
+          signInWithGoogle: () => {
+              const provider = new GoogleAuthProvider();
+              return signInWithPopup(auth, provider);
+          },
+          signInWithEmail: (email, password) => {
+              return signInWithEmailAndPassword(auth, email, password);
+          },
+          signUpWithEmail: (email, password) => {
+              return createUserWithEmailAndPassword(auth, email, password);
+          },
+          signOutUser: () => {
+              return signOut(auth);
+          },
+          onAuthChanged: (callback) => {
+              return onAuthStateChanged(auth, callback);
+          },
+          saveProfile: async (uid, profileData) => {
+              try {
+                  const docRef = doc(db, "volunteers", uid);
+                  await setDoc(docRef, profileData, { merge: true });
+                  return true;
+              } catch (e) {
+                  console.warn("Firestore save failed, using fallback:", e);
+                  return false;
+              }
+          },
+          getProfile: async (uid) => {
+              try {
+                  const docRef = doc(db, "volunteers", uid);
+                  const docSnap = await getDoc(docRef);
+                  return docSnap.exists() ? docSnap.data() : null;
+              } catch (e) {
+                  console.warn("Firestore load failed, using fallback:", e);
+                  return null;
+              }
+          }
+      };
+    </script>
 
     <!-- Application Script -->
     <script src="app.js"></script>
