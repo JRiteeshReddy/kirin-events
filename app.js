@@ -441,7 +441,7 @@ class KirinEventsApp {
         formData.forEach((value, key) => data[key] = value);
 
         // Include metadata for nicer reports inside Formspree dashboard
-        data['_subject'] = `New Kirin Volunteer: ${data.name} - ${data.eventTitle}`;
+        data['_subject'] = `New Kirin Volunteer: ${data['Name']} — ${data['Event Name']}`;
 
         try {
             // Live fetch submission to Formspree endpoint

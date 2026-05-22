@@ -195,21 +195,35 @@
                     <p id="modal-subtitle" class="modal-subtitle-text">Fill in your details to secure your spot for <strong>Event Name</strong></p>
                 </div>
                 <form id="volunteer-form" onsubmit="app.submitRegistration(event)">
-                    <!-- Hidden field to transfer Event Details to Formspree -->
-                    <input type="hidden" name="eventTitle" id="form-event-title">
+                    <!-- Hidden fields to transfer Event Details to Formspree -->
+                    <input type="hidden" name="Event Name" id="form-event-title">
                     <input type="hidden" name="eventId" id="form-event-id">
 
                     <div class="form-group">
                         <label for="volunteer-name">Full Name</label>
-                        <input type="text" name="name" id="volunteer-name" required placeholder="e.g. Riteesh Reddy" autocomplete="name">
+                        <input type="text" name="Name" id="volunteer-name" required placeholder="e.g. Riteesh Reddy" autocomplete="name">
                     </div>
                     <div class="form-group">
-                        <label for="volunteer-phone">Phone Number</label>
-                        <input type="tel" name="phone" id="volunteer-phone" required placeholder="e.g. +91 98765 43210" autocomplete="tel">
+                        <label for="volunteer-whatsapp">WhatsApp Number</label>
+                        <input type="tel" name="WhatsApp Number" id="volunteer-whatsapp" required placeholder="e.g. +91 98765 43210" autocomplete="tel">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="volunteer-age">Age</label>
+                            <input type="number" name="Age" id="volunteer-age" required placeholder="e.g. 22" min="16" max="80">
+                        </div>
+                        <div class="form-group">
+                            <label for="volunteer-location">Location</label>
+                            <input type="text" name="Location" id="volunteer-location" required placeholder="e.g. Bangalore" autocomplete="address-level2">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="volunteer-experience">Experience / Background</label>
+                        <textarea name="Experience" id="volunteer-experience" rows="3" required placeholder="e.g. 2 years of event management, sales intern..."></textarea>
                     </div>
 
                     <div class="modal-disclaimer">
-                        By submitting, you agree to allow the event organizers to reach out to you via the provided contact info.
+                        By submitting, you agree to allow the event organizers to reach out to you via WhatsApp.
                     </div>
 
                     <button type="submit" id="submit-btn" class="btn btn-primary btn-block">
