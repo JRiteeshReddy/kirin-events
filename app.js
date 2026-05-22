@@ -39,17 +39,25 @@ class KirinEventsApp {
             this.handleRouting();
         });
 
-        // Initialize Firebase Auth connection listener
-        setTimeout(() => {
+        // Initialize Firebase Auth — listen for the 'firebase-ready' event
+        // dispatched by the ES module script in index.html, reliable on all networks
+        const attachFirebase = () => {
             if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
-                console.log("Firebase Auth bridge initialized.");
+                console.log("Firebase Auth bridge ready.");
                 window.firebaseInstance.onAuthChanged(async (user) => {
                     await this.handleAuthStateChange(user);
                 });
             } else {
-                console.warn("Firebase Instance is not initialized yet.");
+                console.warn("Firebase Instance not available.");
             }
-        }, 200);
+        };
+
+        if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+            // Already ready (e.g. cached / fast load)
+            attachFirebase();
+        } else {
+            window.addEventListener('firebase-ready', attachFirebase, { once: true });
+        }
     }
 
     /**
