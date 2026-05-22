@@ -100,68 +100,41 @@ class KirinEventsApp {
         
         const navLoginBtn = document.getElementById('nav-login-btn');
         const navUserMenu = document.getElementById('nav-user-menu');
-        const initialsSpan = document.getElementById('nav-user-initials');
-        const dropdownEmail = document.getElementById('dropdown-user-email');
 
         if (user) {
             this.user = user;
             
-            // Try fetching Firestore Profile
-            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
-                const profile = await window.firebaseInstance.getProfile(user.uid);
-                if (profile) {
-                    this.userProfile = profile;
-                    console.log("Firestore profile loaded successfully.");
-                } else {
-                    // Try LocalStorage backup
-                    const localProfile = localStorage.getItem(`kirin_profile_${user.uid}`);
-                    if (localProfile) {
-                        this.userProfile = JSON.parse(localProfile);
-                        console.log("LocalStorage backup profile loaded.");
-                    } else {
-                        this.userProfile = null;
-                    }
-                }
-            }
-
-            // Update UI elements
-            if (navLoginBtn) navLoginBtn.classList.add('hidden');
-            if (navUserMenu) navUserMenu.classList.remove('hidden');
-            
-            const avatarImg = document.getElementById('nav-user-avatar');
-            const nameSpan = document.getElementById('nav-user-name');
-            
-            // Set User Name & Avatar & Initials
-            const name = this.userProfile?.name || user.displayName || user.email || 'User';
-            const shortName = this.userProfile?.name || user.displayName || 'Volunteer';
-            
-            if (nameSpan) {
-                nameSpan.textContent = shortName;
-            }
-            
-            if (user.photoURL) {
-                if (avatarImg) {
-                    avatarImg.src = user.photoURL;
-                    avatarImg.classList.remove('hidden');
-                }
-                if (initialsSpan) initialsSpan.classList.add('hidden');
+            // 1. Instantly load from LocalStorage backup for zero-latency UI update
+            const localProfile = localStorage.getItem(`kirin_profile_${user.uid}`);
+            if (localProfile) {
+                this.userProfile = JSON.parse(localProfile);
+                console.log("Instant LocalStorage profile loaded.");
             } else {
-                if (avatarImg) avatarImg.classList.add('hidden');
-                if (initialsSpan) {
-                    initialsSpan.textContent = this.getUserInitials(name);
-                    initialsSpan.classList.remove('hidden');
-                }
+                this.userProfile = null;
             }
-            
-            if (dropdownEmail) dropdownEmail.textContent = user.email;
 
-            // Close Auth Modal
+            // 2. Immediately update navigation elements & close the modal
+            this.updateUserNavigationUI(user);
             this.closeAuthModal();
 
-            // Resume any event registration that was waiting for login
+            // Resume any event registration waiting for login
             if (this.pendingRegistration) {
                 this.pendingRegistration = false;
                 setTimeout(() => this.openSignupModal(), 100);
+            }
+
+            // 3. Fetch fresh Firestore profile in the background (non-blocking)
+            if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
+                window.firebaseInstance.getProfile(user.uid).then((profile) => {
+                    if (profile) {
+                        this.userProfile = profile;
+                        localStorage.setItem(`kirin_profile_${user.uid}`, JSON.stringify(profile));
+                        console.log("Firestore profile loaded in background.");
+                        this.updateUserNavigationUI(user);
+                    }
+                }).catch((e) => {
+                    console.warn("Background Firestore load failed:", e);
+                });
             }
         } else {
             this.user = null;
@@ -170,6 +143,42 @@ class KirinEventsApp {
             if (navLoginBtn) navLoginBtn.classList.remove('hidden');
             if (navUserMenu) navUserMenu.classList.add('hidden');
         }
+    }
+
+    updateUserNavigationUI(user) {
+        if (!user) return;
+        const navLoginBtn = document.getElementById('nav-login-btn');
+        const navUserMenu = document.getElementById('nav-user-menu');
+        const initialsSpan = document.getElementById('nav-user-initials');
+        const dropdownEmail = document.getElementById('dropdown-user-email');
+        const avatarImg = document.getElementById('nav-user-avatar');
+        const nameSpan = document.getElementById('nav-user-name');
+
+        if (navLoginBtn) navLoginBtn.classList.add('hidden');
+        if (navUserMenu) navUserMenu.classList.remove('hidden');
+        
+        const name = this.userProfile?.name || user.displayName || user.email || 'User';
+        const shortName = this.userProfile?.name || user.displayName || 'Volunteer';
+        
+        if (nameSpan) {
+            nameSpan.textContent = shortName;
+        }
+        
+        if (user.photoURL) {
+            if (avatarImg) {
+                avatarImg.src = user.photoURL;
+                avatarImg.classList.remove('hidden');
+            }
+            if (initialsSpan) initialsSpan.classList.add('hidden');
+        } else {
+            if (avatarImg) avatarImg.classList.add('hidden');
+            if (initialsSpan) {
+                initialsSpan.textContent = this.getUserInitials(name);
+                initialsSpan.classList.remove('hidden');
+            }
+        }
+        
+        if (dropdownEmail) dropdownEmail.textContent = user.email;
     }
 
     getUserInitials(name) {
@@ -338,8 +347,14 @@ class KirinEventsApp {
                     this.userProfile = profileData;
                     localStorage.setItem(`kirin_profile_${user.uid}`, JSON.stringify(profileData));
                     
-                    await window.firebaseInstance.saveProfile(user.uid, profileData);
-                    console.log("New volunteer profile initialized on Firestore.");
+                    // Async background write to Firestore to prevent UI blocking
+                    window.firebaseInstance.saveProfile(user.uid, profileData)
+                        .then((success) => {
+                            if (success) console.log("New volunteer profile initialized on Firestore.");
+                        })
+                        .catch((e) => {
+                            console.warn("Background Firestore profile init failed:", e);
+                        });
                 }
             } else {
                 throw new Error("Authentication module is temporarily offline.");
@@ -396,9 +411,10 @@ class KirinEventsApp {
             localStorage.setItem(`kirin_profile_${this.user.uid}`, JSON.stringify(profileData));
             this.userProfile = profileData;
 
-            // Save to Firebase Firestore
+            // Save to Firebase Firestore in background (non-blocking)
             if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
-                await window.firebaseInstance.saveProfile(this.user.uid, profileData);
+                window.firebaseInstance.saveProfile(this.user.uid, profileData)
+                    .catch(err => console.warn("Firestore save failed in background:", err));
             }
 
             // Success feedback
@@ -887,7 +903,8 @@ class KirinEventsApp {
                 localStorage.setItem(`kirin_profile_${this.user.uid}`, JSON.stringify(profileData));
                 
                 if (window.firebaseInstance && window.firebaseInstance.isInitialized) {
-                    await window.firebaseInstance.saveProfile(this.user.uid, profileData);
+                    window.firebaseInstance.saveProfile(this.user.uid, profileData)
+                        .catch(err => console.warn("Background auto-save profile failed:", err));
                 }
             }
 
