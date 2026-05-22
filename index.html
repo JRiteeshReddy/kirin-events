@@ -28,47 +28,11 @@
                 <span class="logo-text">Kirin<span>Events</span></span>
             </div>
             <nav class="nav-links">
-                <button class="settings-trigger-btn" onclick="app.toggleSettings(true)" title="Configure Contentful API">
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Connect Contentful</span>
-                </button>
+                <!-- Contentful connected via hardcoded credentials -->
             </nav>
         </div>
     </header>
 
-    <!-- Contentful Settings Drawer (Slide Over Panel) -->
-    <div id="settings-drawer" class="drawer-overlay hidden">
-        <div class="drawer-content">
-            <div class="drawer-header">
-                <h3><i class="fa-solid fa-database"></i> API Configurations</h3>
-                <button class="close-drawer-btn" onclick="app.toggleSettings(false)"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="drawer-body">
-                <p class="drawer-info-text">
-                    By default, the platform runs on high-fidelity live mock events. Connect your own Contentful Space to populate your events dynamically.
-                </p>
-                <form id="api-config-form" onsubmit="app.saveApiConfig(event)">
-                    <div class="form-group">
-                        <label for="input-space-id">Contentful Space ID</label>
-                        <input type="text" id="input-space-id" placeholder="Enter your Space ID" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label for="input-preview-token">Content Preview Access Token</label>
-                        <input type="password" id="input-preview-token" placeholder="Enter preview access token" autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label for="input-content-type">Content Type ID (Optional)</label>
-                        <input type="text" id="input-content-type" placeholder="e.g., volunteerEvent" value="volunteerEvent" autocomplete="off">
-                        <small>Defaults to <code>volunteerEvent</code></small>
-                    </div>
-                    <div class="drawer-actions">
-                        <button type="button" class="btn btn-secondary" onclick="app.resetApiConfig()">Reset to Mock</button>
-                        <button type="submit" class="btn btn-primary">Save & Fetch</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- MAIN APP WRAPPER -->
     <main id="app-viewport">
@@ -95,9 +59,6 @@
                     <button class="filter-tab" data-filter="past" onclick="app.filterEvents('past')">
                         <span class="dot dot-past"></span> Past
                     </button>
-                </div>
-                <div class="api-status-badge hidden" id="live-api-status">
-                    <i class="fa-solid fa-link"></i> Live Contentful Feed
                 </div>
             </div>
 

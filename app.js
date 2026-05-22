@@ -1,6 +1,6 @@
 /**
  * Kirin Events — Luma-Style Volunteer Platform Client
- * Core SPA Logic, Routing, Contentful Preview API Integration, Date Parsers
+ * Core SPA Logic, Routing, Contentful CDN API Integration, Date Parsers
  */
 
 class KirinEventsApp {
@@ -9,69 +9,11 @@ class KirinEventsApp {
         this.filteredEvents = [];
         this.currentFilter = 'all';
         this.activeEvent = null;
-        
-        // Contentful API Config State
-        this.apiConfig = {
-            spaceId: localStorage.getItem('kirin_space_id') || '',
-            previewToken: localStorage.getItem('kirin_preview_token') || '',
-            contentType: localStorage.getItem('kirin_content_type') || 'volunteerEvent'
-        };
 
-        // Live Mock Data to fall back on if API is not connected or fails
-        this.mockEvents = [
-            {
-                sys: { id: 'mock-1' },
-                fields: {
-                    title: 'Bangalore Vibecoders Annual Hackathon Prep',
-                    description: 'Help us set up the physical hacking space, configure the LAN tables, distribute swags, and greet hackers for BVA\'s flagship hackathon of the year. This is a high-energy environment with tech builders, creators, and community organizers.',
-                    dates: '28/5/2026 - 2/6/2026',
-                    location: 'BVA Tech Hub, Indiranagar, Bangalore',
-                    volunteerCount: 8,
-                    volunteerDetails: 'Setup Volunteers will handle table routing, wiring check, badge assembly, and entry gate scanning. Shift schedules are highly flexible. Food, energy drinks, and exclusive builder tees provided.',
-                    typeOfWork: 'Technical Setup & Operations',
-                    pay: 'Unpaid (Free swag, massive networking, meals)'
-                }
-            },
-            {
-                sys: { id: 'mock-2' },
-                fields: {
-                    title: 'Summer Green Planting Drive',
-                    description: 'Join hands with local environmental groups to plant over 500 saplings in the urban lake areas of Bangalore. A great opportunity to spend time outdoors, meet climate conscious individuals, and restore green covers.',
-                    dates: '18/5/2026 - 25/5/2026',
-                    location: 'Kaikondrahalli Lake Trails, Outer Ring Road',
-                    volunteerCount: 3,
-                    volunteerDetails: 'Sapling handlers, diggers, and water coordinators needed. Tools will be provided on site. Please wear boots and bring a sun hat. Refreshments will be distributed.',
-                    typeOfWork: 'On-ground Environmental Labor',
-                    pay: 'Unpaid (Certificates and breakfast provided)'
-                }
-            },
-            {
-                sys: { id: 'mock-3' },
-                fields: {
-                    title: 'Community Tech Mentorship Camp',
-                    description: 'Mentoring under-privileged high school students on coding basics, git workflows, and prompt engineering. If you are passionate about education and programming, this camp is the perfect way to give back.',
-                    dates: '15/6/2026 - 20/6/2026',
-                    location: 'Vibecoders Learning Center & Remote Option',
-                    volunteerCount: 12,
-                    volunteerDetails: 'Mentors will lead groups of 3 students through simple web projects. Coding expertise in HTML, CSS, JS is required. We also need coordination support volunteers.',
-                    typeOfWork: 'Teaching & Mentorship',
-                    pay: 'Rs. 500/day stipend'
-                }
-            },
-            {
-                sys: { id: 'mock-4' },
-                fields: {
-                    title: 'Spring Food Redistribution Drive',
-                    description: 'We are organizing surplus food pickup and logistics delivery to local shelter homes. Volunteers are needed to pack, categorize, and drive standard delivery routes across south Bangalore.',
-                    dates: '10/3/2026 - 15/3/2026',
-                    location: 'Redistribution Warehouse, Koramangala',
-                    volunteerCount: 15,
-                    volunteerDetails: 'Packing teams handle quality grading and box taping. Logistics assistants will ride with volunteer drivers to navigate coordinates. Hydration stations provided.',
-                    typeOfWork: 'Logistics & Assembly',
-                    pay: 'Unpaid (Fuel reimbursement available)'
-                }
-            }
-        ];
+        // Hardcoded Contentful CDN credentials
+        this.CONTENTFUL_SPACE_ID = '46mef9e7vxq9';
+        this.CONTENTFUL_CDN_TOKEN = 'IwmWLIq0FDFmxQW6F5w_hV2NED-YYZmQO_r8xmShi7g';
+        this.CONTENTFUL_CONTENT_TYPE = 'kirinevents';
     }
 
     /**
@@ -85,11 +27,8 @@ class KirinEventsApp {
         
         // SPA Hash routing listener
         window.addEventListener('hashchange', () => this.handleRouting());
-        
-        // Load configurations into drawer fields
-        this.populateSettingsDrawer();
 
-        // Initial Data Fetch
+        // Initial Data Fetch from Contentful
         this.fetchEvents().then(() => {
             this.handleRouting();
         });
@@ -104,126 +43,30 @@ class KirinEventsApp {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) this.closeSignupModal();
         });
-
-        // Close settings drawer when clicking backdrop
-        const drawer = document.getElementById('settings-drawer');
-        drawer.addEventListener('click', (e) => {
-            if (e.target === drawer) this.toggleSettings(false);
-        });
     }
 
     /**
-     * Populate settings inputs from memory
-     */
-    populateSettingsDrawer() {
-        document.getElementById('input-space-id').value = this.apiConfig.spaceId;
-        document.getElementById('input-preview-token').value = this.apiConfig.previewToken;
-        document.getElementById('input-content-type').value = this.apiConfig.contentType;
-    }
-
-    /**
-     * Show/Hide settings drawer
-     */
-    toggleSettings(show) {
-        const drawer = document.getElementById('settings-drawer');
-        if (show) {
-            drawer.classList.remove('hidden');
-        } else {
-            drawer.classList.add('hidden');
-        }
-    }
-
-    /**
-     * Save Contentful configurations and refetch
-     */
-    async saveApiConfig(e) {
-        e.preventDefault();
-        
-        const spaceId = document.getElementById('input-space-id').value.trim();
-        const previewToken = document.getElementById('input-preview-token').value.trim();
-        const contentType = document.getElementById('input-content-type').value.trim() || 'volunteerEvent';
-
-        if (spaceId && previewToken) {
-            localStorage.setItem('kirin_space_id', spaceId);
-            localStorage.setItem('kirin_preview_token', previewToken);
-            localStorage.setItem('kirin_content_type', contentType);
-
-            this.apiConfig = { spaceId, previewToken, contentType };
-            this.toggleSettings(false);
-            
-            // Refetch
-            await this.fetchEvents();
-            this.navigateToHome();
-        } else {
-            alert('Please enter both Space ID and Content Preview Token!');
-        }
-    }
-
-    /**
-     * Revert configuration back to mock dataset
-     */
-    async resetApiConfig() {
-        localStorage.removeItem('kirin_space_id');
-        localStorage.removeItem('kirin_preview_token');
-        localStorage.removeItem('kirin_content_type');
-
-        this.apiConfig = { spaceId: '', previewToken: '', contentType: 'volunteerEvent' };
-        
-        document.getElementById('input-space-id').value = '';
-        document.getElementById('input-preview-token').value = '';
-        document.getElementById('input-content-type').value = 'volunteerEvent';
-        
-        this.toggleSettings(false);
-        
-        // Refetch mock data
-        await this.fetchEvents();
-        this.navigateToHome();
-    }
-
-    /**
-     * Fetch Events from Contentful API or Fallback
+     * Fetch Events directly from hardcoded Contentful CDN
      */
     async fetchEvents() {
         this.showProgressBar(true);
         this.toggleSkeleton(true);
 
-        const { spaceId, previewToken, contentType } = this.apiConfig;
-        const statusBadge = document.getElementById('live-api-status');
+        const url = `https://cdn.contentful.com/spaces/${this.CONTENTFUL_SPACE_ID}/environments/master/entries?access_token=${this.CONTENTFUL_CDN_TOKEN}&content_type=${this.CONTENTFUL_CONTENT_TYPE}`;
 
-        if (spaceId && previewToken) {
-            try {
-                // Fetch dynamically from Contentful Preview API
-                const url = `https://preview.contentful.com/spaces/${spaceId}/environments/master/entries?access_token=${previewToken}&content_type=${contentType}`;
-                console.log(`Fetching live data from Contentful Space: ${spaceId}`);
-                
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Contentful preview API returned HTTP status: ${response.status}`);
-                }
-                const data = await response.json();
-                
-                if (data.items && data.items.length > 0) {
-                    this.events = data.items;
-                    statusBadge.innerHTML = `<i class="fa-solid fa-link"></i> Live: ${spaceId}`;
-                    statusBadge.classList.remove('hidden');
-                } else {
-                    console.warn("No items returned from Contentful space. Falling back to Mock Events.");
-                    this.events = this.mockEvents;
-                    statusBadge.classList.add('hidden');
-                }
-            } catch (error) {
-                console.error("Contentful preview fetch error:", error);
-                alert("Failed to load your Contentful space. Double check your Space ID and Preview Token. Showing mock events for now.");
-                this.events = this.mockEvents;
-                statusBadge.classList.add('hidden');
-            }
-        } else {
-            console.log("No credentials provided. Serving premium local mock data.");
-            this.events = this.mockEvents;
-            statusBadge.classList.add('hidden');
+        try {
+            console.log('Fetching events from Contentful CDN...');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Contentful CDN API error: ${response.status}`);
+            const data = await response.json();
+            this.events = data.items || [];
+            console.log(`Loaded ${this.events.length} event(s) from Contentful.`);
+        } catch (error) {
+            console.error('Contentful fetch failed:', error);
+            this.events = [];
         }
 
-        // Map and parse dates/status fields for all loaded events
+        // Map and parse all fields
         this.processEventsData();
 
         this.toggleSkeleton(false);
@@ -231,16 +74,20 @@ class KirinEventsApp {
     }
 
     /**
-     * Parse text dates and compute statuses dynamically
+     * Map Contentful fields, parse dates1+dates2, compute statuses
      */
     processEventsData() {
         this.events = this.events.map(event => {
             const fields = event.fields || {};
-            const dateStr = fields.dates || '';
+
+            // Combine dates1 and dates2 into a single comma-separated string
+            const d1 = (fields.dates1 || '').trim();
+            const d2 = (fields.dates2 || '').trim();
+            const dateStr = d1 && d2 ? `${d1}, ${d2}` : (d1 || d2);
 
             // Run date parsing utility
             const parsed = this.parseAndFormatDates(dateStr);
-            
+
             // Dynamic Status Classification
             const status = this.classifyStatus(parsed.firstStartDate, parsed.lastEndDate);
 
@@ -254,7 +101,8 @@ class KirinEventsApp {
                 lastEndDate: parsed.lastEndDate,
                 location: fields.location || 'Remote',
                 volunteerCount: parseInt(fields.volunteerCount, 10) || 0,
-                volunteerDetails: fields.volunteerDetails || 'No details provided.',
+                // Contentful field is volunteerSpecificDetails
+                volunteerDetails: fields.volunteerSpecificDetails || fields.volunteerDetails || 'No details provided.',
                 typeOfWork: fields.typeOfWork || 'General Support',
                 pay: fields.pay || 'Unpaid',
                 status: status
