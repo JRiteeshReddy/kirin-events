@@ -263,14 +263,27 @@ class KirinEventsApp {
         const btnText = document.getElementById('auth-btn-text');
         const toggleText = document.getElementById('auth-toggle-text');
         
+        const signupFields = document.getElementById('auth-signup-fields');
+        const confirmPasswordGroup = document.getElementById('auth-confirm-password-group');
+        const useridInput = document.getElementById('auth-userid');
+        const confirmPasswordInput = document.getElementById('auth-confirm-password');
+
         if (this.authMode === 'login') {
             if (title) title.textContent = "Volunteer Sign In";
             if (btnText) btnText.textContent = "Sign In";
             if (toggleText) toggleText.innerHTML = `Don't have an account? <a href="#" onclick="app.toggleAuthMode(event)">Sign Up</a>`;
+            if (signupFields) signupFields.classList.add('hidden');
+            if (confirmPasswordGroup) confirmPasswordGroup.classList.add('hidden');
+            if (useridInput) useridInput.removeAttribute('required');
+            if (confirmPasswordInput) confirmPasswordInput.removeAttribute('required');
         } else {
             if (title) title.textContent = "Create Volunteer Account";
-            if (btnText) btnText.textContent = "Create Account";
+            if (btnText) btnText.textContent = "Sign Up";
             if (toggleText) toggleText.innerHTML = `Already have an account? <a href="#" onclick="app.toggleAuthMode(event)">Sign In</a>`;
+            if (signupFields) signupFields.classList.remove('hidden');
+            if (confirmPasswordGroup) confirmPasswordGroup.classList.remove('hidden');
+            if (useridInput) useridInput.setAttribute('required', 'true');
+            if (confirmPasswordInput) confirmPasswordInput.setAttribute('required', 'true');
         }
     }
 
@@ -293,8 +306,32 @@ class KirinEventsApp {
                     await window.firebaseInstance.signInWithEmail(email, password);
                     console.log("Email sign in successful.");
                 } else {
-                    await window.firebaseInstance.signUpWithEmail(email, password);
-                    console.log("Email registration successful.");
+                    const userId = document.getElementById('auth-userid').value.trim();
+                    const confirmPassword = document.getElementById('auth-confirm-password').value;
+
+                    // Password confirmation check
+                    if (password !== confirmPassword) {
+                        throw new Error("CONFIRM_PASSWORD_MISMATCH");
+                    }
+
+                    const userCredential = await window.firebaseInstance.signUpWithEmail(email, password);
+                    const user = userCredential.user;
+                    console.log("Email registration successful. User UID:", user.uid);
+
+                    // Auto-initialize profile with their new User ID
+                    const profileData = {
+                        name: userId,
+                        whatsapp: '',
+                        age: '',
+                        location: '',
+                        experience: ''
+                    };
+                    
+                    this.userProfile = profileData;
+                    localStorage.setItem(`kirin_profile_${user.uid}`, JSON.stringify(profileData));
+                    
+                    await window.firebaseInstance.saveProfile(user.uid, profileData);
+                    console.log("New volunteer profile initialized on Firestore.");
                 }
             } else {
                 throw new Error("Authentication module is temporarily offline.");
@@ -302,8 +339,10 @@ class KirinEventsApp {
         } catch (err) {
             console.error("Email auth failed:", err);
             let userFriendlyMsg = err.message;
-            // Beautify common Firebase errors
-            if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+            
+            if (err.message === "CONFIRM_PASSWORD_MISMATCH") {
+                userFriendlyMsg = "Passwords do not match. Please re-enter.";
+            } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
                 userFriendlyMsg = "Invalid email or password combination.";
             } else if (err.code === 'auth/email-already-in-use') {
                 userFriendlyMsg = "An account with this email address already exists.";
@@ -312,6 +351,7 @@ class KirinEventsApp {
             } else if (err.code === 'auth/invalid-email') {
                 userFriendlyMsg = "Please enter a valid email address.";
             }
+            
             if (errEl) {
                 errEl.textContent = userFriendlyMsg;
                 errEl.classList.remove('hidden');
