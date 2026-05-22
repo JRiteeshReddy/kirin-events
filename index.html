@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kirin Events — Modern Volunteer Event Platform</title>
+    <meta name="description" content="Discover, explore, and register for volunteer events. Fast, frictionless, and conversion-focused volunteer registration platform.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Progress Bar (Loading State indicator) -->
+    <div id="loading-progress" class="loading-progress"></div>
+
+    <!-- Navigation Header -->
+    <header class="main-header">
+        <div class="header-container">
+            <div class="logo-area" onclick="app.navigateToHome()">
+                <div class="logo-circle">
+                    <i class="fa-solid fa-seedling"></i>
+                </div>
+                <span class="logo-text">Kirin<span>Events</span></span>
+            </div>
+            <nav class="nav-links">
+                <button class="settings-trigger-btn" onclick="app.toggleSettings(true)" title="Configure Contentful API">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Connect Contentful</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contentful Settings Drawer (Slide Over Panel) -->
+    <div id="settings-drawer" class="drawer-overlay hidden">
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <h3><i class="fa-solid fa-database"></i> API Configurations</h3>
+                <button class="close-drawer-btn" onclick="app.toggleSettings(false)"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="drawer-body">
+                <p class="drawer-info-text">
+                    By default, the platform runs on high-fidelity live mock events. Connect your own Contentful Space to populate your events dynamically.
+                </p>
+                <form id="api-config-form" onsubmit="app.saveApiConfig(event)">
+                    <div class="form-group">
+                        <label for="input-space-id">Contentful Space ID</label>
+                        <input type="text" id="input-space-id" placeholder="Enter your Space ID" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-preview-token">Content Preview Access Token</label>
+                        <input type="password" id="input-preview-token" placeholder="Enter preview access token" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-content-type">Content Type ID (Optional)</label>
+                        <input type="text" id="input-content-type" placeholder="e.g., volunteerEvent" value="volunteerEvent" autocomplete="off">
+                        <small>Defaults to <code>volunteerEvent</code></small>
+                    </div>
+                    <div class="drawer-actions">
+                        <button type="button" class="btn btn-secondary" onclick="app.resetApiConfig()">Reset to Mock</button>
+                        <button type="submit" class="btn btn-primary">Save & Fetch</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <main id="app-viewport">
+        
+        <!-- ==================== VIEW: HOME (EVENT LISTINGS) ==================== -->
+        <section id="view-home" class="app-view active">
+            <div class="hero-section">
+                <div class="hero-container">
+                    <span class="hero-badge"><i class="fa-solid fa-sparkles"></i> Luma for Volunteers</span>
+                    <h1>Shape your community.<br>Volunteer in seconds.</h1>
+                    <p class="hero-subtext">Discover impactful initiatives, register instantly, and coordinate directly with event organizers. No tedious accounts required.</p>
+                </div>
+            </div>
+
+            <div class="filters-container">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all" onclick="app.filterEvents('all')">All Events</button>
+                    <button class="filter-tab" data-filter="upcoming" onclick="app.filterEvents('upcoming')">
+                        <span class="dot dot-upcoming"></span> Upcoming
+                    </button>
+                    <button class="filter-tab" data-filter="ongoing" onclick="app.filterEvents('ongoing')">
+                        <span class="dot dot-ongoing"></span> Ongoing
+                    </button>
+                    <button class="filter-tab" data-filter="past" onclick="app.filterEvents('past')">
+                        <span class="dot dot-past"></span> Past
+                    </button>
+                </div>
+                <div class="api-status-badge hidden" id="live-api-status">
+                    <i class="fa-solid fa-link"></i> Live Contentful Feed
+                </div>
+            </div>
+
+            <!-- Events Grid -->
+            <div class="events-section-container">
+                <!-- Skeleton Loader -->
+                <div id="events-skeleton" class="skeleton-grid hidden">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="events-empty" class="empty-state-container hidden">
+                    <div class="empty-icon"><i class="fa-regular fa-calendar-xmark"></i></div>
+                    <h3>No events found</h3>
+                    <p>There are no events matching this category currently.</p>
+                </div>
+
+                <!-- Dynamic Listing -->
+                <div id="events-grid" class="events-grid">
+                    <!-- Events injected via app.js -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VIEW: EVENT DETAILS ==================== -->
+        <section id="view-detail" class="app-view hidden">
+            <div class="detail-container">
+                <!-- Back Header -->
+                <div class="detail-navigation">
+                    <button class="btn-back" onclick="app.navigateToHome()">
+                        <i class="fa-solid fa-arrow-left"></i> Back to listings
+                    </button>
+                </div>
+
+                <div class="detail-content-layout">
+                    <!-- Left: Description and Main details -->
+                    <div class="detail-main">
+                        <div class="detail-badge-row">
+                            <span id="detail-status-pill" class="status-pill"></span>
+                            <span id="detail-spots-badge" class="spots-left-badge"></span>
+                        </div>
+                        <h1 id="detail-title" class="event-detail-title">Loading Event...</h1>
+                        
+                        <div class="event-meta-summary-card">
+                            <div class="meta-row">
+                                <div class="meta-icon"><i class="fa-regular fa-calendar-days"></i></div>
+                                <div class="meta-info">
+                                    <span class="meta-label">Date & Time</span>
+                                    <span id="detail-dates" class="meta-val">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-icon"><i class="fa-solid fa-location-dot"></i></div>
+                                <div class="meta-info">
+                                    <span class="meta-label">Location</span>
+                                    <span id="detail-location" class="meta-val">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section">
+                            <h2>About this Event</h2>
+                            <p id="detail-description" class="event-full-description">Loading details...</p>
+                        </div>
+
+                        <div class="detail-section">
+                            <h2>Volunteer Roles & Details</h2>
+                            <p id="detail-volunteer-details" class="event-full-description">Loading details...</p>
+                        </div>
+                    </div>
+
+                    <!-- Right: Info Card / Sidebar -->
+                    <div class="detail-sidebar">
+                        <div class="sticky-sidebar-card">
+                            <h3>Event Overview</h3>
+                            
+                            <ul class="sidebar-details-list">
+                                <li>
+                                    <div class="list-icon"><i class="fa-solid fa-briefcase"></i></div>
+                                    <div class="list-content">
+                                        <span class="item-label">Type of Work</span>
+                                        <span id="sidebar-work-type" class="item-val">—</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="list-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                                    <div class="list-content">
+                                        <span class="item-label">Compensation</span>
+                                        <span id="sidebar-compensation" class="item-val">—</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="list-icon"><i class="fa-solid fa-users"></i></div>
+                                    <div class="list-content">
+                                        <span class="item-label">Target Openings</span>
+                                        <span id="sidebar-spots" class="item-val">—</span>
+                                    </div>
+                                </li>
+                            </ul>
+
+                            <button class="btn btn-primary btn-block btn-cta" onclick="app.openSignupModal()">
+                                Volunteer Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Sticky Bottom CTA Bar -->
+            <div class="mobile-sticky-cta-bar">
+                <div class="mobile-cta-info">
+                    <span id="mobile-cta-title" class="mobile-cta-title">Event Title</span>
+                    <span id="mobile-cta-spots" class="mobile-cta-spots">Only X spots left!</span>
+                </div>
+                <button class="btn btn-primary mobile-cta-btn" onclick="app.openSignupModal()">
+                    Register
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== REGISTRATION MODAL ==================== -->
+    <div id="signup-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-modal-btn" onclick="app.closeSignupModal()"><i class="fa-solid fa-xmark"></i></button>
+            
+            <!-- Step 1: Form Fill -->
+            <div id="modal-form-step">
+                <div class="modal-header">
+                    <h2>Volunteer Registration</h2>
+                    <p id="modal-subtitle" class="modal-subtitle-text">Fill in your details to secure your spot for <strong>Event Name</strong></p>
+                </div>
+                <form id="volunteer-form" onsubmit="app.submitRegistration(event)">
+                    <!-- Hidden field to transfer Event Details to Formspree -->
+                    <input type="hidden" name="eventTitle" id="form-event-title">
+                    <input type="hidden" name="eventId" id="form-event-id">
+
+                    <div class="form-group">
+                        <label for="volunteer-name">Full Name</label>
+                        <input type="text" name="name" id="volunteer-name" required placeholder="e.g. Riteesh Reddy" autocomplete="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="volunteer-phone">Phone Number</label>
+                        <input type="tel" name="phone" id="volunteer-phone" required placeholder="e.g. +91 98765 43210" autocomplete="tel">
+                    </div>
+
+                    <div class="modal-disclaimer">
+                        By submitting, you agree to allow the event organizers to reach out to you via the provided contact info.
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="btn btn-primary btn-block">
+                        <span id="btn-text">Confirm Registration</span>
+                        <span id="btn-spinner" class="spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Step 2: Success Splash -->
+            <div id="modal-success-step" class="modal-success-step hidden">
+                <div class="success-icon-wrapper">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h2>You're in!</h2>
+                <p>We'll contact you soon regarding coordination.</p>
+                <div class="success-details-card">
+                    <span class="success-event-label">REGISTERED FOR</span>
+                    <h4 id="success-event-title">Event Title</h4>
+                </div>
+                <button class="btn btn-secondary btn-block" onclick="app.closeSignupModal()">Close Window</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
